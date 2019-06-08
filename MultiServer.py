@@ -29,7 +29,7 @@ class MultiWorld:
         self.locations = {}
 
 class Context:
-    def __init__(self, host, port, password):
+    def __init__(self, host, port, password, adminslot = None):
         self.data_filename = None
         self.save_filename = None
         self.disable_save = False
@@ -38,6 +38,7 @@ class Context:
         self.port = port
         self.password = password
         self.server = None
+        self.adminslot = adminslot
         self.clients = []
         self.received_items = {}
 
@@ -280,11 +281,56 @@ async def process_client_cmd(ctx : Context, client : Client, cmd, args):
             return
 
         notify_all(ctx, client.name + ': ' + args)
+        args = args.split()
 
-        if args[:8] == '!players':
+        if args[0] == '!players':
             notify_all(ctx, get_connected_players_string(ctx))
-        if args[:8] == '!forfeit':
+        if args[0] == '!forfeit':
             forfeit_player(ctx, client.team, client.slot, client.name)
+
+        if args[0] == '!forfeitslot':
+            if client.slot == ctx.adminslot:
+                team = client.team
+                slot = int(args[1])
+                name = get_player_name_in_team(ctx, team, slot)
+                forfeit_player(ctx, team, slot, name)
+            else:
+                notify_all(ctx, '[Server]: Insufficient access')
+
+        if args[0] == '!kick':
+            if client.slot == ctx.adminslot:
+                client = get_client_from_name(ctx, args[1])
+                if client and client.socket and not client.socket.closed:
+                    await client.socket.close()
+            else:
+                notify_all(ctx, '[Server]: Insufficient access')
+
+        if args[0] == '!forfeitplayer':
+            if client.slot == ctx.adminslot:
+                client = get_client_from_name(ctx, args[1])
+                if client:
+                    forfeit_player(ctx, client.team, client.slot, client.name)
+            else:
+                notify_all(ctx, '[Server]: Insufficient access')
+
+        if args[0] == '!senditem':
+            if client.slot == ctx.adminslot:
+                [(player, item)] = re.findall(r'\S* (\S*) (.*)', args)
+                if item in Items.item_table:
+                    client = get_client_from_name(ctx, player)
+                    if client:
+                        new_item = ReceivedItem(Items.item_table[item][3], "cheat console", 0, "server")
+                        get_received_items(ctx, client.team, client.slot).append(new_item)
+                        notify_all(ctx, 'Cheat console: sending "' + item + '" to ' + client.name)
+                    send_new_items(ctx)
+            else:
+                notify_all(ctx, '[Server]: Insufficient access')
+
+        if args[0] == '!password':
+            if client.slot == admin.slot:
+                set_password(ctx, args[1])
+            else:
+                notify_all(ctx, '[Server]: Insufficient access')
 
 def set_password(ctx : Context, password):
     ctx.password = password
@@ -343,9 +389,10 @@ async def main():
     parser.add_argument('--multidata', default=None)
     parser.add_argument('--savefile', default=None)
     parser.add_argument('--disable_save', default=False, action='store_true')
+    parser.add_argument('--adminslot', default=None, type=int)
     args = parser.parse_args()
 
-    ctx = Context(args.host, args.port, args.password)
+    ctx = Context(args.host, args.port, args.password, args.adminslot)
 
     ctx.data_filename = args.multidata
 
@@ -384,7 +431,13 @@ async def main():
 
     ctx.server = websockets.serve(functools.partial(server,ctx=ctx), ctx.host, ctx.port, ping_timeout=None, ping_interval=None)
     await ctx.server
-    await console(ctx)
+    if args.adminslot:
+        print("Disabling console input")
+        while True:
+            await asyncio.sleep(60)
+    else:
+        print("Activating console input")
+        await console(ctx)
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
