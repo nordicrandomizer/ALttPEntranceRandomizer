@@ -296,33 +296,24 @@ async def process_client_cmd(ctx : Context, client : Client, cmd, args):
         if args[0] == '!forfeit':
             forfeit_player(ctx, client.team, client.slot, client.name)
 
-        if args[0] == '!forfeitslot' and len(args) == 3 and args[2].isdigit():
-            if client.admin:
+        if client.admin:
+            if args[0] == '!forfeitslot' and len(args) == 3 and args[2].isdigit():
                 team = client.team
                 slot = int(args[1])
                 name = get_player_name_in_team(ctx, team, slot)
                 forfeit_player(ctx, team, slot, name)
-            else:
-                notify_client(client, '[Server]: Insufficient access')
 
-        if args[0] == '!forfeitplayer' and len(args) > 1:
-            if client.admin:
+            if args[0] == '!forfeitplayer' and len(args) > 1:
                 client = get_client_from_name(ctx, args[1])
                 if client:
                     forfeit_player(ctx, client.team, client.slot, client.name)
-            else:
-                notify_client(client, '[Server]: Insufficient access')
 
-        if args[0] == '!kick' and len(args) > 1:
-            if client.admin:
+            if args[0] == '!kick' and len(args) > 1:
                 client = get_client_from_name(ctx, args[1])
                 if client and client.socket and not client.socket.closed:
                     await client.socket.close()
-            else:
-                notify_client(client, '[Server]: Insufficient access')
 
-        if args[0] == '!senditem' and len(args) > 2:
-            if client.admin:
+            if args[0] == '!senditem' and len(args) > 2:
                 [(player, item)] = re.findall(r'\S* (\S*) (.*)', args)
                 if item in Items.item_table:
                     client = get_client_from_name(ctx, player)
@@ -331,14 +322,11 @@ async def process_client_cmd(ctx : Context, client : Client, cmd, args):
                         get_received_items(ctx, client.team, client.slot).append(new_item)
                         notify_all(ctx, 'Cheat console: sending "' + item + '" to ' + client.name)
                     send_new_items(ctx)
-            else:
-                notify_client(client, '[Server]: Insufficient access')
 
-        if args[0] == '!password':
-            if client.slot == admin.slot:
-                set_password(ctx, args[1])
-            else:
-                notify_all(ctx, '[Server]: Insufficient access')
+            if args[0] == '!password':
+                set_password(ctx, args[1] if len(args) > 1 else None)
+        else:
+            notify_client(client, '[Server]: Insufficient access')
 
 def set_password(ctx : Context, password):
     ctx.password = password
