@@ -326,7 +326,7 @@ async def process_client_cmd(ctx : Context, client : Client, cmd, args):
             if args[0] == '!password':
                 password = args[1] if len(args) > 1 else None
                 set_password(ctx, password)
-                notify_client(client, '[Server]: Password has been set to ' + password)
+                notify_client(client, '[Server]: Password has been set to ' + str(password))
         else:
             notify_client(client, '[Server]: Insufficient access')
 
